@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unearthed Qualifier Results</title>
+<style>
+  :root {
+    --bg: #f4f6fa;
+    --surface: #ffffff;
+    --text: #1d2433;
+    --muted: #64708a;
+    --border: #e1e6ef;
+    --accent: #c8102e;
+    --accent-soft: #fde8ec;
+    --row-alt: #f9fafc;
+    --yes: #1a7f37;
+    --yes-bg: #e6f4ea;
+    --no: #8a94a6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c;
+      --surface: #1b2029;
+      --text: #e6e9ef;
+      --muted: #9aa4b5;
+      --border: #2c3340;
+      --accent: #ff5a6e;
+      --accent-soft: #3a1c22;
+      --row-alt: #1f2530;
+      --yes: #5fd27d;
+      --yes-bg: #1b3324;
+      --no: #7d8799;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px;
+  }
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 16px 0;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 1.5rem; }
+  .subtitle { color: var(--muted); margin: 0 0 16px; font-size: 0.9rem; }
+  nav.tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+  }
+  nav.tabs button {
+    appearance: none;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-weight: 600;
+    padding: 12px 18px;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+  nav.tabs button:hover { color: var(--text); }
+  nav.tabs button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  main { padding: 20px 16px 40px; }
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .toolbar h2 { margin: 0; font-size: 1.15rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  .controls button, .controls input {
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+  }
+  .controls button { cursor: pointer; }
+  .controls button:hover { border-color: var(--accent); color: var(--accent); }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow-x: auto;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td.award { white-space: normal; min-width: 220px; }
+  th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  th:hover { color: var(--text); }
+  th.sorted { color: var(--accent); }
+  th .arrow { display: inline-block; width: 1em; font-size: 0.75rem; }
+  th.num, td.num { text-align: right; }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr:hover { background: var(--accent-soft); }
+  td.team { font-weight: 600; }
+  td.best { font-weight: 700; }
+  .na { color: var(--no); font-style: italic; }
+  .pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .pill.yes { background: var(--yes-bg); color: var(--yes); }
+  .pill.no { color: var(--no); }
+  .status {
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .status.error { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Unearthed Qualifier Results</h1>
+    <p class="subtitle">Live from the Qualifier Competition 26 spreadsheet</p>
+    <nav class="tabs" id="tabs"></nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="toolbar">
+      <div>
+        <h2 id="locTitle"></h2>
+        <div class="meta" id="meta"></div>
+      </div>
+      <div class="controls">
+        <input type="search" id="filter" placeholder="Filter teams…" aria-label="Filter teams">
+        <button id="resetSort" title="Sort by Best Score, highest first">Reset sort</button>
+        <button id="refresh" title="Reload data from the spreadsheet">Refresh</button>
+      </div>
+    </div>
+    <div class="card" id="card"><div class="status">Loading…</div></div>
+  </div>
+</main>
+
+<script>
+// ---------- Configuration ----------
+const SHEET_ID = "179x63PbQarpGgOr2qHen6P_zWnaFBZqF89ViIIZjrmA";
+
+const LOCATIONS = [
+  { label: "Arlington Heights", sheet: "AH Qualifiers" },
+  { label: "Batavia",           sheet: "Batavia Qualifiers" },
+  { label: "Buffalo Grove",     sheet: "BG Qualifiers" },
+  { label: "Naperville",        sheet: "Naperville Qualifiers" }
+];
+
+// Columns shown, in display order. "type" controls how sorting works.
+const COLUMNS = [
+  { key: "Team Name",        type: "text" },
+  { key: "Qualifier",        type: "text" },
+  { key: "Rank",             type: "rank",    num: true },
+  { key: "Advance",          type: "advance" },
+  { key: "Best Score",       type: "number",  num: true, cls: "best" },
+  { key: "Round 1",          type: "number",  num: true },
+  { key: "Round 2",          type: "number",  num: true },
+  { key: "Round 3",          type: "number",  num: true },
+  { key: "Number of Awards", type: "number",  num: true },
+  { key: "Award",            type: "text",    cls: "award" }
+];
+
+const DEFAULT_SORT = { key: "Best Score", dir: "desc" };
+
+// ---------- State ----------
+const cache = {};          // sheet name -> rows
+let current = LOCATIONS[0];
+let sort = { ...DEFAULT_SORT };
+let filterText = "";
+
+// ---------- CSV parsing ----------
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); rows.push(row); row = []; field = "";
+    } else field += c;
+  }
+  if (field !== "" || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+const norm = s => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+async function loadSheet(sheetName, force = false) {
+  if (cache[sheetName] && !force) return cache[sheetName];
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1` +
+              `&sheet=${encodeURIComponent(sheetName)}&_=${Date.now()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const grid = parseCSV(await res.text());
+  if (!grid.length) return (cache[sheetName] = []);
+
+  // Map our column names to the sheet's header positions (case/space-insensitive)
+  const headers = grid[0].map(norm);
+  const index = {};
+  COLUMNS.forEach(col => { index[col.key] = headers.indexOf(norm(col.key)); });
+
+  const rows = grid.slice(1)
+    .map(r => {
+      const obj = {};
+      COLUMNS.forEach(col => {
+        const i = index[col.key];
+        obj[col.key] = i >= 0 ? String(r[i] ?? "").trim() : "";
+      });
+      return obj;
+    })
+    .filter(o => o["Team Name"] !== "");   // skip blank rows
+
+  return (cache[sheetName] = rows);
+}
+
+// ---------- Sorting ----------
+function sortValue(row, col) {
+  const v = row[col.key];
+  if (v === "") return null;
+  switch (col.type) {
+    case "number": {
+      const n = parseFloat(v.replace(/,/g, ""));
+      return isNaN(n) ? null : n;
+    }
+    case "rank": {
+      const n = parseInt(v, 10);          // "1st" -> 1
+      return isNaN(n) ? null : n;
+    }
+    case "advance": {
+      // "Yes 11" ranks above "No"; among Yes, sort by the trailing number
+      const m = v.match(/^yes\s*(\d+)?/i);
+      if (m) return m[1] ? parseInt(m[1], 10) : 0;
+      return 100000;                      // "No" and anything else
+    }
+    default:
+      return v.toLowerCase();
+  }
+}
+
+function sortRows(rows) {
+  const col = COLUMNS.find(c => c.key === sort.key);
+  const dir = sort.dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const va = sortValue(a, col), vb = sortValue(b, col);
+    // Blanks always go to the bottom, whichever direction
+    if (va === null && vb === null) return a["Team Name"].localeCompare(b["Team Name"]);
+    if (va === null) return 1;
+    if (vb === null) return -1;
+    let cmp = typeof va === "string" ? va.localeCompare(vb) : va - vb;
+    if (cmp === 0) {
+      // Tie-break on Best Score (highest first), then team name
+      const ba = sortValue(a, COLUMNS[4]), bb = sortValue(b, COLUMNS[4]);
+      if (ba !== bb) return (bb ?? -1) - (ba ?? -1);
+      return a["Team Name"].localeCompare(b["Team Name"]);
+    }
+    return cmp * dir;
+  });
+}
+
+// Sensible first-click direction per column
+function defaultDir(col) {
+  if (col.type === "number" && col.key !== "Number of Awards") return "desc";
+  if (col.key === "Number of Awards") return "desc";
+  return "asc";   // text A→Z, rank 1st first, advance Yes first
+}
+
+// ---------- Rendering ----------
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function cellHTML(row, col) {
+  const v = row[col.key];
+  if (col.key === "Best Score" && v === "") return '<span class="na">N/A</span>';
+  if (col.key === "Advance") {
+    if (/^yes/i.test(v)) return `<span class="pill yes">${esc(v)}</span>`;
+    if (v) return `<span class="pill no">${esc(v)}</span>`;
+  }
+  if (v === "" && col.num) return '<span class="na">—</span>';
+  return esc(v);
+}
+
+function render() {
+  const card = document.getElementById("card");
+  const rows = cache[current.sheet];
+  if (!rows) return;
+
+  const q = norm(filterText);
+  const visible = sortRows(rows).filter(r =>
+    !q || COLUMNS.some(c => norm(r[c.key]).includes(q)));
+
+  const scored = rows.filter(r => r["Best Score"] !== "").length;
+  const advancing = rows.filter(r => /^yes/i.test(r["Advance"])).length;
+  document.getElementById("meta").textContent =
+    `${rows.length} teams · ${scored} with scores · ${advancing} advancing`;
+
+  if (!visible.length) {
+    card.innerHTML = `<div class="status">${rows.length ? "No teams match that filter." : "No teams listed on this tab yet."}</div>`;
+    return;
+  }
+
+  const head = COLUMNS.map(col => {
+    const active = sort.key === col.key;
+    const arrow = active ? (sort.dir === "asc" ? "▲" : "▼") : "";
+    return `<th class="${col.num ? "num" : ""} ${active ? "sorted" : ""}" data-key="${esc(col.key)}"
+              title="Sort by ${esc(col.key)}">${esc(col.key)} <span class="arrow">${arrow}</span></th>`;
+  }).join("");
+
+  const body = visible.map(r => "<tr>" + COLUMNS.map(col => {
+    const classes = [col.num ? "num" : "", col.cls || "", col.key === "Team Name" ? "team" : ""].join(" ").trim();
+    return `<td class="${classes}">${cellHTML(r, col)}</td>`;
+  }).join("") + "</tr>").join("");
+
+  card.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+
+  card.querySelectorAll("th").forEach(th => th.addEventListener("click", () => {
+    const col = COLUMNS.find(c => c.key === th.dataset.key);
+    if (sort.key === col.key) sort.dir = sort.dir === "asc" ? "desc" : "asc";
+    else sort = { key: col.key, dir: defaultDir(col) };
+    render();
+  }));
+}
+
+async function showLocation(loc, force = false) {
+  current = loc;
+  document.querySelectorAll("#tabs button").forEach(b =>
+    b.classList.toggle("active", b.dataset.sheet === loc.sheet));
+  document.getElementById("locTitle").textContent = `${loc.label} Qualifier`;
+  document.getElementById("meta").textContent = "";
+  const card = document.getElementById("card");
+
+  if (!cache[loc.sheet] || force) card.innerHTML = '<div class="status">Loading…</div>';
+  try {
+    await loadSheet(loc.sheet, force);
+    if (current === loc) render();
+  } catch (err) {
+    if (current === loc) {
+      card.innerHTML = `<div class="status error">Couldn't load the "${esc(loc.sheet)}" tab (${esc(err.message)}).<br>
+        Make sure the spreadsheet is shared as "Anyone with the link can view".</div>`;
+    }
+  }
+}
+
+// ---------- Setup ----------
+const tabs = document.getElementById("tabs");
+LOCATIONS.forEach(loc => {
+  const b = document.createElement("button");
+  b.textContent = loc.label;
+  b.dataset.sheet = loc.sheet;
+  b.addEventListener("click", () => {
+    sort = { ...DEFAULT_SORT };        // each tab opens sorted by Best Score
+    showLocation(loc);
+  });
+  tabs.appendChild(b);
+});
+
+document.getElementById("resetSort").addEventListener("click", () => {
+  sort = { ...DEFAULT_SORT }; render();
+});
+document.getElementById("refresh").addEventListener("click", () => showLocation(current, true));
+document.getElementById("filter").addEventListener("input", e => {
+  filterText = e.target.value; render();
+});
+
+showLocation(LOCATIONS[0]);
+</script>
+</body>
+</html>
